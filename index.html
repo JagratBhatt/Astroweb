@@ -1,0 +1,170 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Jagrit Jyotish - Vedic Astrology Portal</title>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
+    <style>
+        :root { --gold: #d4af37; --dark: #0b1a30; --glass: rgba(255, 255, 255, 0.1); }
+        body { font-family: 'Segoe UI', sans-serif; margin: 0; background: var(--dark); color: white; line-height: 1.6; }
+        
+        .container { max-width: 800px; margin: 0 auto; padding: 20px; }
+        .hero { text-align: center; padding: 60px 20px; background: linear-gradient(transparent, var(--dark)), url('https://www.transparenttextures.com/patterns/stardust.png'); }
+        
+        /* Form Styling */
+        .form-box { background: var(--glass); padding: 30px; border-radius: 15px; border: 1px solid var(--gold); backdrop-filter: blur(10px); }
+        input { width: 100%; padding: 12px; margin: 10px 0; border-radius: 5px; border: none; font-size: 16px; }
+        button { background: var(--gold); color: black; width: 100%; padding: 15px; border: none; border-radius: 5px; font-weight: bold; cursor: pointer; transition: 0.3s; margin-top: 10px;}
+        button:hover { background: #f1c40f; transform: scale(1.02); }
+
+        /* Suggestions UI */
+        .autocomplete-items { background: white; color: black; position: absolute; width: 100%; z-index: 99; border-radius: 0 0 5px 5px; max-height: 200px; overflow-y: auto; }
+        .autocomplete-item { padding: 10px; cursor: pointer; border-bottom: 1px solid #ddd; }
+        .autocomplete-item:hover { background: #f0f0f0; }
+
+        /* Results Display */
+        #kundali-results { display: none; margin-top: 30px; padding: 20px; background: rgba(0,0,0,0.5); border-radius: 10px; border-left: 5px solid var(--gold); }
+        .chart-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 20px; margin-top: 20px; }
+        
+        /* Floating Icons */
+        .floating { position: fixed; bottom: 30px; right: 20px; display: flex; flex-direction: column; gap: 15px; z-index: 1000; }
+        .social-btn { width: 55px; height: 55px; border-radius: 50%; display: flex; align-items: center; justify-content: center; color: white; font-size: 24px; text-decoration: none; box-shadow: 0 5px 15px rgba(0,0,0,0.3); transition: 0.3s; }
+        .wa { background: #25d366; } .ig { background: #e4405f; }
+        .social-btn:hover { transform: translateY(-5px); }
+
+        /* Ads/Services */
+        .ads { margin-top: 100px; padding: 40px 0; text-align: center; }
+        .ad-card { background: #16243d; padding: 20px; border-radius: 10px; margin-bottom: 20px; transition: 0.3s; }
+        .ad-card:hover { border: 1px solid var(--gold); }
+    </style>
+</head>
+<body>
+
+<section class="hero">
+    <h1>Jagrit Jyotish</h1>
+    <p>Authentic Vedic Kundali Calculations</p>
+    
+    <div class="container">
+        <div class="form-box">
+            <input type="text" id="userName" placeholder="Your Name">
+            <input type="date" id="dob">
+            <input type="time" id="tob">
+            
+            <div style="position: relative;">
+                <input type="text" id="citySearch" placeholder="Search Birth City..." autocomplete="off">
+                <div id="suggestions" class="autocomplete-items"></div>
+            </div>
+
+            <button onclick="getCalculations()">Generate Full Kundali</button>
+        </div>
+
+        <div id="kundali-results">
+            <h2>Your Vedic Profile</h2>
+            <div id="birth-data-summary"></div>
+            <div class="chart-grid">
+                <div><h3>Lagna (D1)</h3><p id="lagna-info">Calculating...</p></div>
+                <div><h3>Navamsa (D9)</h3><p id="navamsa-info">Calculating...</p></div>
+            </div>
+            <h3>Current Dasha</h3>
+            <p id="dasha-info">Loading...</p>
+        </div>
+    </div>
+</section>
+
+<section class="container ads">
+    <h2>Specialized Remedial Services</h2>
+    <div class="ad-card">
+        <h3>✨ Personalized Puja</h3>
+        <p>Expert remedial pujas based on your specific planetary Doshas.</p>
+        <button onclick="location.href='https://wa.me/918630240413'">Enquire on WhatsApp</button>
+    </div>
+    <div class="ad-card">
+        <h3>💎 Gemstone Suggestion</h3>
+        <p>Boost your Rashi Lord with certified, energized gemstones.</p>
+    </div>
+    <div class="ad-card">
+        <h3>📞 Expert Consultation</h3>
+        <p>Book a 1-on-1 session with our senior astrologers.</p>
+    </div>
+</section>
+
+<div class="floating">
+    <a href="https://wa.me/918630240413" class="social-btn wa"><i class="fab fa-whatsapp"></i></a>
+    <a href="https://instagram.com/Jagrit_jyotish3" class="social-btn ig"><i class="fab fa-instagram"></i></a>
+</div>
+
+<script>
+    // --- INSERT YOUR API KEYS HERE ---
+    const GEO_KEY = "YOUR_GEOAPIFY_API_KEY"; // Get from geoapify.com
+    const VEDIKA_KEY = "YOUR_VEDIKA_API_KEY"; // Get from vedika.io
+
+    let selectedCoords = { lat: 0, lon: 0, tz: 5.5 };
+
+    // 1. City Autocomplete Logic
+    const cityInput = document.getElementById('citySearch');
+    const suggBox = document.getElementById('suggestions');
+
+    cityInput.addEventListener('input', async () => {
+        const text = cityInput.value;
+        if (text.length < 3) return;
+
+        const res = await fetch(`https://api.geoapify.com/v1/geocode/autocomplete?text=${text}&apiKey=${GEO_KEY}`);
+        const data = await res.json();
+        
+        suggBox.innerHTML = '';
+        data.features.forEach(place => {
+            const div = document.createElement('div');
+            div.className = 'autocomplete-item';
+            div.innerHTML = place.properties.formatted;
+            div.onclick = () => {
+                cityInput.value = place.properties.formatted;
+                selectedCoords.lat = place.properties.lat;
+                selectedCoords.lon = place.properties.lon;
+                suggBox.innerHTML = '';
+            };
+            suggBox.appendChild(div);
+        });
+    });
+
+    // 2. Astrology Calculation Logic
+    async function getCalculations() {
+        const resultsDiv = document.getElementById('kundali-results');
+        resultsDiv.style.display = 'block';
+        resultsDiv.scrollIntoView();
+
+        const birthDetails = {
+            date: document.getElementById('dob').value,
+            time: document.getElementById('tob').value,
+            latitude: selectedCoords.lat,
+            longitude: selectedCoords.lon,
+            timezone: 5.5 // Default for India
+        };
+
+        try {
+            // Fetching Birth Chart Data from Vedika API
+            const response = await fetch('https://api.vedika.io/v1/birth-chart', {
+                method: 'POST',
+                headers: { 
+                    'Authorization': `Bearer ${VEDIKA_KEY}`,
+                    'Content-Type': 'application/json' 
+                },
+                body: JSON.stringify(birthDetails)
+            });
+
+            const data = await response.json();
+
+            // Updating the UI with Real Data
+            document.getElementById('lagna-info').innerText = `Rising Sign: ${data.ascendant.sign} at ${data.ascendant.degree}°`;
+            document.getElementById('navamsa-info').innerText = `Soul Purpose: Navamsa Position ${data.navamsa_chart_summary || 'Verified'}`;
+            document.getElementById('dasha-info').innerText = `Current Mahadasha: ${data.current_dasha || 'Vimshottari Active'}`;
+            
+        } catch (error) {
+            console.error("API Error:", error);
+            alert("Please check your API Key and try again!");
+        }
+    }
+</script>
+
+</body>
+</html>
